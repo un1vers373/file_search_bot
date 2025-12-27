@@ -1,0 +1,16 @@
+# Основные зависимости
+aiogram==3.15.0
+python-dotenv==1.0.1
+aiohttp>=3.9.0,<3.11
+aiofiles>=23.2.1,<24.2
+requests
+
+
+# Работа с базой данных (SQLite встроен в Python, дополнительные библиотеки не нужны)
+
+# Для логирования (встроено в Python)
+
+# Опциональные зависимости для будущих расширений:
+# google-api-python-client==2.108.0  # для YouTube и Google Drive API
+# google-auth-httplib2==0.2.0
+# google-auth-oauthlib==1.2.0
