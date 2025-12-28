@@ -13,6 +13,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import Config
 from db import Database
 from search import SearchEngine
+from downloader import VideoDownloader
 
 # Настройка логирования
 logging.basicConfig(
@@ -27,6 +28,7 @@ bot = Bot(token=config.BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 db = Database()
 search_engine = SearchEngine(config)
+video_downloader = VideoDownloader()
 
 
 def is_admin(user_id: int) -> bool:
@@ -41,12 +43,20 @@ async def cmd_start(message: Message):
 
     welcome_text = (
         "👋 Привет! Я бот для поиска файлов и полезных ссылок.\n\n"
-        f"🔌 Google Search API: {api_status}\n\n"
+        f"🔌 Google Search API: {api_status}\n"
+        f"🆔 Ваш Telegram ID: <code>{message.from_user.id}</code>\n\n"
         "📝 Доступные команды:\n"
         "/search <запрос> — поиск по ключевым словам\n"
         "/stats — статистика использования (только для админов)\n"
         "/clear_cache — очистить кеш (только для админов)\n"
         "/help — показать эту справку\n\n"
+        "🎥 <b>Скачивание видео:</b>\n"
+        "Просто отправьте ссылку на видео из:\n"
+        "• Instagram (Reels, posts)\n"
+        "• TikTok\n"
+        "• YouTube\n"
+        "• Twitter/X\n"
+        "• Facebook\n\n"
     )
 
     if config.GOOGLE_SEARCH_ENABLED:
@@ -58,7 +68,7 @@ async def cmd_start(message: Message):
             "• GOOGLE_CX"
         )
 
-    await message.answer(welcome_text)
+    await message.answer(welcome_text, parse_mode="HTML")
 
 
 @dp.message(Command("help"))
@@ -211,10 +221,80 @@ async def cmd_clear_cache(message: Message):
 
 
 @dp.message()
-async def handle_other_messages(message: Message):
+async def handle_messages(message: Message):
     """Обработчик всех остальных сообщений"""
+
+    # Проверяем, является ли сообщение ссылкой на видео
+    if message.text and ('http://' in message.text or 'https://' in message.text):
+        url = message.text.strip()
+
+        # Проверяем поддерживаемые платформы
+        if video_downloader.is_supported_url(url):
+            status_msg = await message.answer("⏳ Загружаю видео...")
+
+            try:
+                # Скачиваем видео
+                video_info = await video_downloader.download_video(url)
+
+                if video_info:
+                    filepath = video_info['filepath']
+
+                    # Проверяем размер файла
+                    if video_info['filesize'] > 50 * 1024 * 1024:  # 50 MB
+                        await status_msg.edit_text(
+                            "❌ Видео слишком большое (больше 50 MB).\n"
+                            "Telegram не позволяет отправлять такие большие файлы."
+                        )
+                        video_downloader.cleanup_file(filepath)
+                        return
+
+                    # Отправляем видео
+                    await status_msg.edit_text("📤 Отправляю видео...")
+
+                    caption = (
+                        f"🎥 <b>{video_info['title']}</b>\n"
+                        f"📱 Платформа: {video_info['platform']}\n"
+                        f"👤 Автор: {video_info['uploader']}\n"
+                        f"📊 Размер: {video_info['filesize'] / (1024 * 1024):.1f} MB"
+                    )
+
+                    with open(filepath, 'rb') as video_file:
+                        await message.answer_video(
+                            video_file,
+                            caption=caption,
+                            parse_mode="HTML"
+                        )
+
+                    await status_msg.delete()
+
+                    # Удаляем файл после отправки
+                    video_downloader.cleanup_file(filepath)
+
+                    logger.info(f"Видео успешно отправлено: {url}")
+                else:
+                    await status_msg.edit_text(
+                        "❌ Не удалось скачать видео.\n"
+                        "Возможные причины:\n"
+                        "• Видео приватное\n"
+                        "• Видео удалено\n"
+                        "• Проблемы с сервером\n"
+                        "• Видео слишком большое"
+                    )
+
+            except Exception as e:
+                logger.error(f"Ошибка при обработке видео: {e}")
+                await status_msg.edit_text(
+                    "⚠️ Произошла ошибка при скачивании видео.\n"
+                    "Попробуйте другую ссылку."
+                )
+
+            return
+
+    # Если это не ссылка на видео
     await message.answer(
-        "Используйте /search <запрос> для поиска или /help для справки."
+        "Используйте /search <запрос> для поиска или отправьте ссылку на видео для скачивания.\n\n"
+        "Поддерживаемые платформы:\n"
+        "🎥 Instagram, TikTok, YouTube, Twitter/X, Facebook"
     )
 
 
