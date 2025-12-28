@@ -7,7 +7,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import Message, FSInputFile
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import Config
@@ -46,7 +46,7 @@ async def cmd_start(message: Message):
         f"🔌 Google Search API: {api_status}\n"
         f"🆔 Ваш Telegram ID: <code>{message.from_user.id}</code>\n\n"
         "📝 Доступные команды:\n"
-        "/search <запрос> — поиск по ключевым словам\n"
+        "/search &lt;запрос&gt; — поиск по ключевым словам\n"
         "/stats — статистика использования (только для админов)\n"
         "/clear_cache — очистить кеш (только для админов)\n"
         "/help — показать эту справку\n\n"
@@ -258,12 +258,13 @@ async def handle_messages(message: Message):
                         f"📊 Размер: {video_info['filesize'] / (1024 * 1024):.1f} MB"
                     )
 
-                    with open(filepath, 'rb') as video_file:
-                        await message.answer_video(
-                            video_file,
-                            caption=caption,
-                            parse_mode="HTML"
-                        )
+                    # Используем FSInputFile для отправки
+                    video_file = FSInputFile(filepath)
+                    await message.answer_video(
+                        video_file,
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
 
                     await status_msg.delete()
 

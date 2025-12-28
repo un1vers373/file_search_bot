@@ -33,8 +33,8 @@ class VideoDownloader:
         supported_domains = [
             'instagram.com',
             'tiktok.com',
-            'youtube.com',
-            'youtu.be',
+            # 'youtube.com',  # Временно отключен из-за блокировок
+            # 'youtu.be',
             'twitter.com',
             'x.com',
             'facebook.com',
@@ -58,12 +58,15 @@ class VideoDownloader:
         try:
             # Настройки для yt-dlp
             ydl_opts = {
-                'format': 'best[ext=mp4]/best',  # Лучшее качество в mp4
+                'format': 'bestvideo[height<=720]+bestaudio/best[height<=720]/best',
                 'outtmpl': os.path.join(self.download_path, '%(id)s.%(ext)s'),
-                'quiet': True,
-                'no_warnings': True,
+                'quiet': False,  # Включаем вывод для отладки
+                'no_warnings': False,
                 'extract_flat': False,
-                'max_filesize': 50 * 1024 * 1024,  # Максимум 50 MB
+                'nocheckcertificate': True,
+                'ignoreerrors': False,
+                'no_color': True,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             }
 
             # Извлекаем информацию о видео
